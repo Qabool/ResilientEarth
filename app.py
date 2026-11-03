@@ -10,7 +10,8 @@ with st.sidebar:
     st.markdown("## 🌍 ResilientEarth"); st.caption("Explore • Understand • Prepare")
     page = st.radio("Navigate", PAGES, label_visibility="collapsed")
     prov = st.selectbox("Province", list(DISTRICTS))
-    dist = st.selectbox("District", list(DISTRICTS[prov]))
+    _names = list(DISTRICTS[prov])
+    dist = st.selectbox("District", _names, index=_names.index("Muzaffargarh") if "Muzaffargarh" in _names else 0)
     demo = st.toggle("Demo Mode (sample data)", False)
     if st.button("🔄 Refresh data"):
         st.cache_data.clear(); st.rerun()
@@ -56,9 +57,11 @@ def key_insights():
     st.caption("Follow official warnings from PMD, FFD and disaster authorities.")
 
 def map_fig():
-    rows = [dict(district=d, lat=c[0], lon=c[1], sel=("Selected" if d == dist else "Pilot district")) for p in DISTRICTS.values() for d, c in p.items()]
-    f = px.scatter_map(pd.DataFrame(rows), lat="lat", lon="lon", hover_name="district", color="sel", size=[16 if r["sel"] == "Selected" else 9 for r in rows],
-                       color_discrete_map={"Selected": "#E74C3C", "Pilot district": "#1E88E5"}, zoom=4.6, height=380)
+    rows = [dict(district=d, province=p, status=("Selected" if d == dist else "Pilot district")) for p, ds_ in DISTRICTS.items() for d in ds_]
+    f = px.choropleth_map(pd.DataFrame(rows), geojson=GEOJSON, locations="district", featureidkey="properties.district",
+                          color="status", color_discrete_map={"Selected": "#E74C3C", "Pilot district": "#9CC9F5"},
+                          hover_name="district", hover_data={"province": True, "status": False, "district": False},
+                          center=dict(lat=coords[0], lon=coords[1]), zoom=5.2 if prov == "Punjab" else 5.6, opacity=0.65, height=380)
     f.update_layout(margin=dict(l=0, r=0, t=0, b=0), legend_title=""); return f
 
 def seasonal_chart():
@@ -74,7 +77,7 @@ if page == "Overview":
     a, b = st.columns([3, 2])
     with a:
         st.subheader("Pilot districts map"); st.plotly_chart(map_fig(), use_container_width=True)
-        st.caption("Centroids only. Add district boundary GeoJSON and rainfall/flood layers (Phase 2-4).")
+        st.caption("District boundaries: GADM-derived (older administrative units). Rainfall, flood and NDVI layers: Phase 2-4.")
     with b:
         st.subheader(f"Rainfall trends: {dist}")
         if rain is not None: st.plotly_chart(seasonal_chart()[0], use_container_width=True)
